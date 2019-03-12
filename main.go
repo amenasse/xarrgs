@@ -5,9 +5,36 @@ import "fmt"
 import "bufio"
 import "log"
 import "flag"
-import "strings"
+//import "strings"
+
+
+func execute (cmdName string, args []string) {
+
+	cmd := exec.Command(cmdName, args...)
+
+	cmdOutput , err := cmd.StdoutPipe()
+		if err != nil {
+		log.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+	scanner := bufio.NewScanner(cmdOutput)
+
+	for scanner.Scan() {
+		fmt.Printf("%s\n", scanner.Text())
+
+	}
+
+	cmd.Wait()
+}
+
 
 func main () {
+
+	var extraArgs  []string
+	const MAX_ARG_LENGTH = 2048
+
 	flag.Parse()
 	args := flag.Args()
 
@@ -20,25 +47,30 @@ func main () {
 	if len(args) > 1 {
 		initialArgs = args[1:]
 	}
-	lineScanner := bufio.NewScanner(os.Stdin)
-	for lineScanner.Scan() {
-		args := append(initialArgs, strings.Fields(lineScanner.Text())...)
-		cmd := exec.Command(cmdName, args...)
+	wordScanner := bufio.NewScanner(os.Stdin)
+	wordScanner.Split(bufio.ScanWords)
+	
 
-		cmdOutput , err := cmd.StdoutPipe()
-			if err != nil {
-			log.Fatal(err)
-		}
-		if err := cmd.Start(); err != nil {
-			log.Fatal(err)
-		}
-		scanner := bufio.NewScanner(cmdOutput)
 
-		for scanner.Scan() {
-			fmt.Printf("%s\n", scanner.Text())
 
+	current_length := len(cmdName) + len(initialArgs)
+	for wordScanner.Scan() {
+
+		word := wordScanner.Text()
+
+		if current_length + len(word) > MAX_ARG_LENGTH {
+			execute(cmdName, append(initialArgs, extraArgs...))
+			extraArgs = nil
+			current_length = len(cmdName) + len(initialArgs)
 		}
 
-		cmd.Wait()
+		current_length += len(word)
+		extraArgs = append(extraArgs, word)
+
 	}
+
+	execute(cmdName, append(initialArgs, extraArgs...))
+
+
 }
+
