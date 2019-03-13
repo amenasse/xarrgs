@@ -7,10 +7,19 @@ import "log"
 import "flag"
 //import "strings"
 
+const MAX_ARG_SIZE = 2048
 
-func execute (cmdName string, args []string) {
+type cmdArgs struct {
+	initialLength int
+	initialSize int
+	size int
+	args []string
+}
 
-	cmd := exec.Command(cmdName, args...)
+
+func (c *cmdArgs) execute () {
+
+	cmd := exec.Command(c.args[0], c.args[1:]...)
 
 	cmdOutput , err := cmd.StdoutPipe()
 		if err != nil {
@@ -29,47 +38,53 @@ func execute (cmdName string, args []string) {
 	cmd.Wait()
 }
 
+func (c *cmdArgs) pushArg(initial bool, arg string) {
+
+	if initial == true {
+		c.initialLength += 1
+		c.initialSize += len(arg)
+	}
+
+	if initial != true && c.size + len(arg) > MAX_ARG_SIZE {
+		c.execute()
+		c.args = c.args[0:c.initialLength]
+		c.size = c.initialSize
+
+	}
+	c.size += len(arg)
+	c.args = append(c.args, arg)
+}
+
 
 func main () {
 
-	var extraArgs  []string
-	const MAX_ARG_LENGTH = 2048
 
 	flag.Parse()
 	args := flag.Args()
 
-	cmdName := "/bin/echo"
-	var initialArgs []string
+	initialArgs := []string{"/bin/echo"}
 
 	if len(args) > 0 {
-		cmdName = args[0]
+		initialArgs[0] = args[0]
 	}
 	if len(args) > 1 {
 		initialArgs = args[1:]
 	}
-	wordScanner := bufio.NewScanner(os.Stdin)
-	wordScanner.Split(bufio.ScanWords)
-	
 
+	c := cmdArgs{}
 
-
-	current_length := len(cmdName) + len(initialArgs)
-	for wordScanner.Scan() {
-
-		word := wordScanner.Text()
-
-		if current_length + len(word) > MAX_ARG_LENGTH {
-			execute(cmdName, append(initialArgs, extraArgs...))
-			extraArgs = nil
-			current_length = len(cmdName) + len(initialArgs)
-		}
-
-		current_length += len(word)
-		extraArgs = append(extraArgs, word)
-
+	for _, a := range initialArgs {
+		c.pushArg(true, a)
 	}
 
-	execute(cmdName, append(initialArgs, extraArgs...))
+	wordScanner := bufio.NewScanner(os.Stdin)
+	wordScanner.Split(bufio.ScanWords)
+
+	for wordScanner.Scan() {
+		c.pushArg(false, wordScanner.Text())
+	}
+
+	c.execute()
 
 
 }
