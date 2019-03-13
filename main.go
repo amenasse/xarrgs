@@ -1,28 +1,27 @@
 package main
+
 import "os/exec"
 import "os"
 import "fmt"
 import "bufio"
 import "log"
 import "flag"
-//import "strings"
 
 const MAX_ARG_SIZE = 2048
 
 type cmdArgs struct {
 	initialLength int
-	initialSize int
-	size int
-	args []string
+	initialSize   int
+	size          int
+	args          []string
 }
 
-
-func (c *cmdArgs) execute () {
+func (c *cmdArgs) execute() {
 
 	cmd := exec.Command(c.args[0], c.args[1:]...)
 
-	cmdOutput , err := cmd.StdoutPipe()
-		if err != nil {
+	cmdOutput, err := cmd.StdoutPipe()
+	if err != nil {
 		log.Fatal(err)
 	}
 	if err := cmd.Start(); err != nil {
@@ -45,7 +44,7 @@ func (c *cmdArgs) pushArg(initial bool, arg string) {
 		c.initialSize += len(arg)
 	}
 
-	if initial != true && c.size + len(arg) > MAX_ARG_SIZE {
+	if initial != true && c.size+len(arg) > MAX_ARG_SIZE {
 		c.execute()
 		c.args = c.args[0:c.initialLength]
 		c.size = c.initialSize
@@ -55,9 +54,7 @@ func (c *cmdArgs) pushArg(initial bool, arg string) {
 	c.args = append(c.args, arg)
 }
 
-
-func main () {
-
+func main() {
 
 	flag.Parse()
 	args := flag.Args()
@@ -86,6 +83,4 @@ func main () {
 
 	c.execute()
 
-
 }
-
