@@ -1,5 +1,6 @@
 package main
 
+import "bytes"
 import "os/exec"
 import "os"
 import "fmt"
@@ -54,10 +55,28 @@ func (c *cmdArgs) pushArg(initial bool, arg string) {
 	c.args = append(c.args, arg)
 }
 
+func ScanNullTerminate(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	if i := bytes.IndexByte(data, '\x00'); i >= 0 {
+		// We have a null-terminated.
+		return i + 1, data[0:i], nil
+	}
+	// If we're at EOF, we have a final, non-terminated line. Return it.
+	if atEOF {
+		return len(data), data, nil
+	}
+	// Request more data.
+	return 0, nil, nil
+}
+
 func main() {
 
+    	nullTerminate := flag.Bool("null", false, "items are seperated by a null not whitespace") 
 	flag.Parse()
 	args := flag.Args()
+
 
 	initialArgs := []string{"/bin/echo"}
 
@@ -74,11 +93,17 @@ func main() {
 		c.pushArg(true, a)
 	}
 
-	wordScanner := bufio.NewScanner(os.Stdin)
-	wordScanner.Split(bufio.ScanWords)
+	splitFunc := bufio.ScanWords
 
-	for wordScanner.Scan() {
-		c.pushArg(false, wordScanner.Text())
+	if *nullTerminate == true {
+		splitFunc = ScanNullTerminate
+	}
+
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Split(splitFunc)
+
+	for scanner.Scan() {
+		c.pushArg(false, scanner.Text())
 	}
 
 	c.execute()
