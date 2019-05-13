@@ -79,14 +79,9 @@ func main() {
 
 
 	initialArgs := []string{"/bin/echo"}
-
 	if len(args) > 0 {
-		initialArgs[0] = args[0]
+		initialArgs = args[0:]
 	}
-	if len(args) > 1 {
-		initialArgs = args[1:]
-	}
-
 	c := cmdArgs{}
 
 	for _, a := range initialArgs {
