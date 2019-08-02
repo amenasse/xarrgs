@@ -7,6 +7,7 @@ import "fmt"
 import "bufio"
 import "log"
 import "flag"
+import "sync"
 
 const MAX_ARG_SIZE = 2048
 
@@ -17,42 +18,47 @@ type cmdArgs struct {
 	args          []string
 }
 
-func (c *cmdArgs) execute() {
+var wg sync.WaitGroup
 
-	cmd := exec.Command(c.args[0], c.args[1:]...)
+func (c *cmdArgs) execute(ch <-chan []string) {
 
-	cmdOutput, err := cmd.StdoutPipe()
-	if err != nil {
-		log.Fatal(err)
+	defer wg.Done()
+
+	for args := range ch {
+		cmd := exec.Command(args[0], args[1:]...)
+		cmdOutput, err := cmd.StdoutPipe()
+		cmd.Wait()
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := cmd.Start(); err != nil {
+			log.Fatal(err)
+		}
+		scanner := bufio.NewScanner(cmdOutput)
+
+		for scanner.Scan() {
+			fmt.Printf("%s\n", scanner.Text())
+		}
 	}
-	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
-	}
-	scanner := bufio.NewScanner(cmdOutput)
-
-	for scanner.Scan() {
-		fmt.Printf("%s\n", scanner.Text())
-
-	}
-
-	cmd.Wait()
 }
 
-func (c *cmdArgs) pushArg(initial bool, arg string) {
+func (c *cmdArgs) pushArg(initial bool, arg string, ch chan []string) {
 
 	if initial == true {
 		c.initialLength += 1
 		c.initialSize += len(arg)
 	}
 
-	if initial != true && c.size+len(arg) > MAX_ARG_SIZE {
-		c.execute()
-		c.args = c.args[0:c.initialLength]
-		c.size = c.initialSize
-
-	}
 	c.size += len(arg)
 	c.args = append(c.args, arg)
+	if initial != true && c.size+len(arg) > MAX_ARG_SIZE {
+
+		argsCopy := make([]string, len(c.args))
+		copy(argsCopy, c.args)
+		ch <- argsCopy
+		c.args = c.args[0:c.initialLength]
+		c.size = c.initialSize
+	}
 }
 
 func ScanNullTerminate(data []byte, atEOF bool) (advance int, token []byte, err error) {
@@ -73,19 +79,21 @@ func ScanNullTerminate(data []byte, atEOF bool) (advance int, token []byte, err 
 
 func main() {
 
-    	nullTerminate := flag.Bool("null", false, "items are seperated by a null not whitespace") 
+	nullTerminate := flag.Bool("null", false, "items are seperated by a null not whitespace")
 	flag.Parse()
 	args := flag.Args()
-
 
 	initialArgs := []string{"/bin/echo"}
 	if len(args) > 0 {
 		initialArgs = args[0:]
 	}
 	c := cmdArgs{}
+	ch := make(chan []string)
 
+	wg.Add(1)
+	go c.execute(ch)
 	for _, a := range initialArgs {
-		c.pushArg(true, a)
+		c.pushArg(true, a, ch)
 	}
 
 	splitFunc := bufio.ScanWords
@@ -98,9 +106,10 @@ func main() {
 	scanner.Split(splitFunc)
 
 	for scanner.Scan() {
-		c.pushArg(false, scanner.Text())
+		c.pushArg(false, scanner.Text(), ch)
 	}
 
-	c.execute()
-
+	ch <- c.args
+	close(ch)
+	wg.Wait()
 }
