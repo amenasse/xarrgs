@@ -27,7 +27,6 @@ func (c *cmdArgs) execute(ch <-chan []string) {
 	for args := range ch {
 		cmd := exec.Command(args[0], args[1:]...)
 		cmdOutput, err := cmd.StdoutPipe()
-		cmd.Wait()
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -39,6 +38,10 @@ func (c *cmdArgs) execute(ch <-chan []string) {
 		for scanner.Scan() {
 			fmt.Printf("%s\n", scanner.Text())
 		}
+		if err := cmd.Wait(); err != nil {
+			log.Fatal(err)
+		}
+
 	}
 }
 
