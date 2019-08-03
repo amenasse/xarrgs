@@ -41,8 +41,8 @@ func (c *cmdArgs) execute(ch <-chan []string) {
 		if err := cmd.Wait(); err != nil {
 			log.Fatal(err)
 		}
-
 	}
+
 }
 
 func (c *cmdArgs) pushArg(initial bool, arg string, ch chan []string) {
@@ -83,6 +83,7 @@ func ScanNullTerminate(data []byte, atEOF bool) (advance int, token []byte, err 
 func main() {
 
 	nullTerminate := flag.Bool("null", false, "items are seperated by a null not whitespace")
+	maxProcs := flag.Int("max-procs", 1, "Maximum number of cores to use")
 	flag.Parse()
 	args := flag.Args()
 
@@ -93,8 +94,10 @@ func main() {
 	c := cmdArgs{}
 	ch := make(chan []string)
 
-	wg.Add(1)
-	go c.execute(ch)
+	for i := 0; i < *maxProcs; i++ {
+		wg.Add(1)
+		go c.execute(ch)
+	}
 	for _, a := range initialArgs {
 		c.pushArg(true, a, ch)
 	}
