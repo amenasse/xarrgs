@@ -58,7 +58,10 @@ func (c *cmdArgs) pushArg(initial bool, arg string, ch chan []string) {
 	// argument string  are counted (see man page)
 
 	if initial != true && c.size+len(arg) >= c.maxArgSize {
-
+		// Pass a copy of .cargs to ensure args passed to channel
+		// aren't modified by subsequent changes to c.args. If we
+		// just pass the slice the channel consumer will be referencing
+		// the same underlying array as c.args
 		argsCopy := make([]string, len(c.args))
 		copy(argsCopy, c.args)
 		ch <- argsCopy
