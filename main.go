@@ -16,6 +16,7 @@ type cmdArgs struct {
 	initialSize   int
 	size          int
 	args          []string
+	maxArgSize    int
 }
 
 var wg sync.WaitGroup
@@ -52,9 +53,11 @@ func (c *cmdArgs) pushArg(initial bool, arg string, ch chan []string) {
 		c.initialSize += len(arg)
 	}
 
-	c.size += len(arg)
-	c.args = append(c.args, arg)
-	if initial != true && c.size+len(arg) > MAX_ARG_SIZE {
+	// result of using --max-chars is going to be different from GNU xargs
+	// . GNU Xargs is written in  C - terminating nulls at the end of each
+	// argument string  are counted (see man page)
+
+	if initial != true && c.size+len(arg) >= c.maxArgSize {
 
 		argsCopy := make([]string, len(c.args))
 		copy(argsCopy, c.args)
@@ -62,6 +65,9 @@ func (c *cmdArgs) pushArg(initial bool, arg string, ch chan []string) {
 		c.args = c.args[0:c.initialLength]
 		c.size = c.initialSize
 	}
+
+	c.size += len(arg)
+	c.args = append(c.args, arg)
 }
 
 func ScanNullTerminate(data []byte, atEOF bool) (advance int, token []byte, err error) {
@@ -84,6 +90,7 @@ func main() {
 
 	nullTerminate := flag.Bool("null", false, "items are seperated by a null not whitespace")
 	maxProcs := flag.Int("max-procs", 1, "Maximum number of cores to use")
+	maxChars := flag.Int("max-chars", MAX_ARG_SIZE, "Use at most max-chars per command line")
 	flag.Parse()
 	args := flag.Args()
 
@@ -92,6 +99,7 @@ func main() {
 		initialArgs = args[0:]
 	}
 	c := cmdArgs{}
+	c.maxArgSize = *maxChars
 	ch := make(chan []string)
 
 	for i := 0; i < *maxProcs; i++ {
