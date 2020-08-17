@@ -3,6 +3,9 @@
 A toy implementation of Xargs written in Golang. It's purpose was
 for me to practice some Go. Only a tiny subset of Xargs features are implemented.
 
+## Installation
+
+    go get github.com/amenasse/xarrgs
 
 ## Usage
 
