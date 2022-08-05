@@ -44,9 +44,9 @@ $ find . -type d -print0 | ./xarrgs -null du -s
 ## Lessons Learnt
 
 
-1. Everything in Golang is passed by value.
+1. A slice references an underlying array.  
 
-    A slice references an underlying array. So when passing a slice to a function or channel the same underlying array is still referenced by the receiver.
+    when passing a slice to a function or channel the same underlying array is still referenced by the receiver.
 
     From https://blog.golang.org/go-slices-usage-and-internals:
 
